@@ -19,9 +19,9 @@ func server(fd int, c chan int) {
 
 		switch cla := cliaddr.(type) {
 		case *syscall.SockaddrInet4:
-			fmt.Printf("client: %s:%d, fd: %d\n", cla.Addr, cla.Port, nfd)
+			fmt.Printf("client:%s:%d, fd:%d\n", cla.Addr, cla.Port, nfd)
 		default:
-			fmt.Printf("client socket type not supported: %v, fd: %d\n", cla, nfd)
+			fmt.Printf("client socket addr type not supported: %v, fd: %d\n", cla, nfd)
 		}
 
 		go func(nfd int) {
@@ -31,27 +31,29 @@ func server(fd int, c chan int) {
 				n, err := syscall.Read(nfd, buff)
 				if err != nil {
 					println("failed to read data: ", err.Error())
-					syscall.Close(nfd)
-					return
+					break
 				}
 
-				/*
-					When client terminates connection 0 bytes will be returned whitout any error
-				*/
-				println("read bytes: ", n)
+				/* When client terminates connection 0 bytes will be returned whitout any error (EOF) */
+				println("read bytes:", n)
+
+				if n == 0 {
+					println("EOF")
+					break
+				}
 
 				if n > 0 {
 					_, err = syscall.Write(nfd, buff[:n])
 					if err != nil {
 						println("failed to write data: ", err.Error())
-						syscall.Close(nfd)
-						return
+						break
 					}
 				}
 
-				syscall.Close(nfd)
-				return
+				clear(buff)
 			}
+
+			syscall.Close(nfd)
 		}(nfd)
 	}
 }
